@@ -1,11 +1,40 @@
 name: Run
-
 on:
   workflow_dispatch:
-
 jobs:
   tmate:
     runs-on: windows-latest
     steps:
+      - name: Download IDA installer parts
+        shell: bash
+        run: |
+          curl.exe -L -O "https://pub-dc80a5a639cb4c709e11547ed7bfbf1e.r2.dev/IDA%20Pro/9.4/9.4.7z.001"
+          curl.exe -L -O "https://pub-dc80a5a639cb4c709e11547ed7bfbf1e.r2.dev/IDA%20Pro/9.4/9.4.7z.002"
+          curl.exe -L -O "https://pub-dc80a5a639cb4c709e11547ed7bfbf1e.r2.dev/IDA%20Pro/9.4/9.4.7z.003"
+
+      - name: Extract installer
+        shell: bash
+        run: 7z x "9.4.7z.001" -o"ida_extracted"
+
+      - name: Install IDA silently
+        shell: pwsh
+        working-directory: ida_extracted
+        run: |
+          Start-Process -FilePath ".\ida-pro_94_x64win.exe" -ArgumentList "--mode unattended --unattendedmodeui none --prefix C:/ida --install_python 0 --activate_idalib 1" -Verb RunAs -Wait
+
+      - name: Copy license
+        shell: bash
+        run: cp ida_extracted/idapro.hexlic C:/ida/idapro.hexlic
+
+      - name: Copy IDA DLLs
+        shell: bash
+        run: |
+          cp ida_extracted/ida.dll C:/ida/ida.dll
+          cp ida_extracted/ida32.dll C:/ida/ida32.dll
+
+      - name: Run idapyswitch
+        shell: bash
+        run: echo 0 | C:/ida/idapyswitch.exe
+
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
