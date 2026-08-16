@@ -1,0 +1,11 @@
+name: Run
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tmate:
+    runs-on: windows-latest
+    steps:
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
