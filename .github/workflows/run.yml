@@ -1,8 +1,18 @@
 name: Run
 on:
   workflow_dispatch:
+    inputs:
+      region:
+        type: choice
+        options:
+          - Global
+          - Japan
+        required: true
+      version:
+        required: true
+
 jobs:
-  tmate:
+  analyze:
     runs-on: windows-latest
     steps:
       - name: Download IDA installer parts
@@ -93,5 +103,33 @@ jobs:
           EOF
           py accept_eula.py C:/ida
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
+      - name: Download IL2CPP dump release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.region }}-PC-${{ inputs.version }}
+        run: |
+          ASSET_URL=$(curl -s "https://api.github.com/repos/marserlesser-ai/RDump/releases/tags/$RELEASE_TAG" \
+            | grep "browser_download_url.*\.zip" | head -1 | cut -d '"' -f 4)
+
+          echo "Downloading: $ASSET_URL"
+          curl -L -o dump.zip "$ASSET_URL"
+          mkdir -p il2cpp_dump
+          unzip dump.zip -d il2cpp_dump
+          ls -la il2cpp_dump
+
+      - name: Run IDA headless analysis with IL2CPP script
+        shell: bash
+        run: |
+          mkdir -p output
+          C:/ida/idat.exe -A -Lil2cpp_analysis.log \
+            -o"D:/a/XM_IDA/XM_IDA/output/GameAssembly" \
+            -S"D:/a/XM_IDA/XM_IDA/il2cpp_dump/il2cpp.py" \
+            D:/a/XM_IDA/XM_IDA/il2cpp_dump/GameAssembly.dll
+
+      - name: Upload analysis artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ida-il2cpp-analysis
+          path: |
+            output/
+            il2cpp_analysis.log
