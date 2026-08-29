@@ -10,6 +10,13 @@ on:
         required: true
       version:
         required: true
+      enable_script:
+        type: boolean
+        default: true
+        required: true
+      gameassembly_url:
+        type: string
+        required: false
 
 jobs:
   analyze:
@@ -117,14 +124,35 @@ jobs:
           unzip dump.zip -d il2cpp_dump
           ls -la il2cpp_dump
 
-      - name: Run IDA headless analysis with IL2CPP script
+      - name: Download custom GameAssembly.dll
+        if: ${{ inputs.gameassembly_url != '' }}
         shell: bash
+        env:
+          GAMEASSEMBLY_URL: ${{ inputs.gameassembly_url }}
+        run: |
+          echo "Downloading custom GameAssembly.dll from: $GAMEASSEMBLY_URL"
+          curl -L -o il2cpp_dump/GameAssembly.dll "$GAMEASSEMBLY_URL"
+          ls -la il2cpp_dump
+
+      - name: Run IDA headless analysis
+        shell: bash
+        env:
+          ENABLE_SCRIPT: ${{ inputs.enable_script }}
         run: |
           mkdir -p output
-          C:/ida/idat.exe -A -Lil2cpp_analysis.log \
-            -o"D:/a/XM_IDA/XM_IDA/output/GameAssembly" \
-            -S"D:/a/XM_IDA/XM_IDA/il2cpp_dump/il2cpp.py" \
-            D:/a/XM_IDA/XM_IDA/il2cpp_dump/GameAssembly.dll
+
+          if [ "$ENABLE_SCRIPT" = "true" ]; then
+            echo "Running with IL2CPP script enabled"
+            C:/ida/idat.exe -A -Lil2cpp_analysis.log \
+              -o"D:/a/XM_IDA/XM_IDA/output/GameAssembly" \
+              -S"D:/a/XM_IDA/XM_IDA/il2cpp_dump/il2cpp.py" \
+              D:/a/XM_IDA/XM_IDA/il2cpp_dump/GameAssembly.dll
+          else
+            echo "Running without IL2CPP script"
+            C:/ida/idat.exe -A -Lil2cpp_analysis.log \
+              -o"D:/a/XM_IDA/XM_IDA/output/GameAssembly" \
+              D:/a/XM_IDA/XM_IDA/il2cpp_dump/GameAssembly.dll
+          fi
 
       - name: Upload analysis artifacts
         uses: actions/upload-artifact@v4
